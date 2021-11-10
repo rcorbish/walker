@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>Babylon Template</title>
+
+    <style>
+        html,
+        body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+    </style>
+
+    <script src="https://cdn.babylonjs.com/babylon.js"></script>
+    <script src="https://cdn.babylonjs.com/loaders/babylonjs.loaders.min.js"></script>
+    <script src="https://code.jquery.com/pep/0.4.3/pep.js"></script>
+    <script src="https://cdn.babylonjs.com/cannon.js"></script>
+    <script src="https://cdn.babylonjs.com/ammo.js"></script>
+</head>
+
+<body>
+
+    <canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
+
+
+    <script>
+        function init(b) {
+            //const physicsPlugin = new BABYLON.CannonJSPlugin();
+            const physicsPlugin = new BABYLON.AmmoJSPlugin()
+
+            const meshes = []
+            const joints = []
+            const body = b
+            lines = {}
+
+            function resetBody() {
+                for (let i = 0; i < body.joints.length; i++) {
+                    let joint = body.joints[i]
+                    let mesh = meshes[i]
+                    mesh.setAbsolutePosition(joint.position)
+                    mesh.rotationQuaternion = new BABYLON.Quaternion()
+                    mesh.physicsImpostor.setLinearVelocity(BABYLON.Vector3.Zero())
+                    mesh.physicsImpostor.setAngularVelocity(new BABYLON.Quaternion())
+                }
+            }
+
+            function updateScene() {
+                for (let ix = 0; ix < body.bones.length; ix++) {
+
+                    const bone = body.bones[ix]
+                    const a = meshes[bone.from - 1]
+                    const b = meshes[bone.to - 1]
+
+                    const nm = "line" + bone.ix
+                    points = [a.getAbsolutePosition(), b.getAbsolutePosition()]
+                    const options = {
+                        "points": points,
+                        "instance": lines[nm]
+                    }
+                    BABYLON.MeshBuilder.CreateLines(nm, options);
+                }
+
+                for (let mesh of meshes) {
+                    const x = Math.random() / 30.0
+                    const y = Math.random() / 30.0
+                    const z = Math.random() / 20.0
+                    const impulse = new BABYLON.Vector3(x, y, z)
+                    mesh.applyImpulse(impulse, BABYLON.Vector3.Zero() )
+                }
+            }
+
+            function createScene() {
+                const scene = new BABYLON.Scene(engine);
+
+                var gravityVector = new BABYLON.Vector3(0, -9.81, 0);
+
+                scene.enablePhysics(gravityVector, physicsPlugin);
+
+                // Our built-in 'ground' shape. Params: name, width, depth, subdivs, scene
+                const ground = BABYLON.Mesh.CreateGround("ground", 200, 200, 1, scene)
+                const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene)
+                groundMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1)
+                groundMaterial.specularColor = new BABYLON.Color3(0.5, 0.6, 0.17)
+                groundMaterial.emissiveColor = new BABYLON.Color3(.4, .5, .1)
+                groundMaterial.ambientColor = new BABYLON.Color3(0.03, 0.2, 0.3)
+                ground.material = groundMaterial;
+                ground.position = new BABYLON.Vector3(0, -53, 0);
+
+                for (let i = 0; i < body.joints.length; i++) {
+                    let joint = body.joints[i]
+                    let mesh = BABYLON.MeshBuilder.CreateSphere("joint" + joint.ix, { "diameter": joint.r });
+                    meshes.push(mesh)
+                    mesh.setAbsolutePosition(joint.position)
+                    mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: joint.mass, restitution: 0.4 }, scene);
+                }
+
+                new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.5 }, scene);
+
+                for (let ix = 0; ix < body.bones.length; ix++) {
+                    const bone = body.bones[ix]
+                    const a = meshes[bone.from - 1]
+                    const b = meshes[bone.to - 1]
+
+                    const points = [a.getAbsolutePosition(), b.getAbsolutePosition()]
+                    const options = {
+                        "points": points,
+                        "updatable": true
+                    }
+                    const nm = "line" + bone.ix
+                    lines[nm] = BABYLON.MeshBuilder.CreateLines(nm, options);
+
+                    const dist = BABYLON.Vector3.Distance(a.getAbsolutePosition(), b.getAbsolutePosition())
+                    const relativePos = a.position.subtract(b.getAbsolutePosition())
+                    const jointData = {
+                        mainAxis: new BABYLON.Vector3(0, 0, 1),     // hinge around Z axis
+                        connectedAxis: new BABYLON.Vector3(0, 0, 1),// hinge around Z axis
+                        mainPivot: BABYLON.Vector3.Zero(),          // rotate around this center
+                        connectedPivot: relativePos,                // relative position of hinge joint
+                        maxDistance: dist
+                    };
+                    const joint = new BABYLON.PhysicsJoint(BABYLON.PhysicsJoint.HingeJoint, jointData);
+                    a.physicsImpostor.addJoint(b.physicsImpostor, joint)
+                    joints.push({ "a": a.physicsImpostor, "b": b.physicsImpostor, "joint": joint })
+                }
+                const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 15, new BABYLON.Vector3(0, 0, 0));
+                // Positions the camera overwriting alpha, beta, radius
+                camera.setPosition(new BABYLON.Vector3(0, 0, 250));
+
+                camera.attachControl(canvas, true);
+
+                const light = new BABYLON.HemisphericLight("light", new BABYLON.Vector3(0, 0, 10));
+                light.diffuse = new BABYLON.Color3(.4, .6, 1);
+                light.groundColor = new BABYLON.Color3(.2, .5, .2);
+                scene.ambientColor = new BABYLON.Color3(.1, 1, .5);
+
+                scene.onAfterPhysicsObservable.add(() => {
+                    if (meshes[5].getAbsolutePosition().y <= -40) {
+                        resetBody()
+                    }
+                })
+
+
+                return scene;
+            };
+
+            const scene = createScene();
+
+            // scene.registerAfterRender(function() {
+            //     if( meshes[12].getAbsolutePosition().y <= -40 ) {
+            //         resetBody()
+            //     }
+            // })
+
+            engine.runRenderLoop(function () {
+                updateScene();
+                scene.render();
+            });
+        }
+    </script>
+
+
+    <script>
+
+        function reqListener() {
+            body = JSON.parse(this.responseText);
+            for (let i = 0; i < body.joints.length; i++) {
+                let x = body.joints[i].position.x
+                let y = body.joints[i].position.y
+                let z = body.joints[i].position.z
+                body.joints[i].position = new BABYLON.Vector3(x, y, z)
+            }
+            //   body.bones = body.bones.slice( 0, 1 )
+            init(body)
+        }
+
+        const oReq = new XMLHttpRequest();
+        oReq.addEventListener("load", reqListener);
+        oReq.open("GET", "body.json");
+        oReq.send();
+
+        const canvas = document.getElementById("renderCanvas"); // Get the canvas element
+        const engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
+
+        // Watch for browser/canvas resize events
+        window.addEventListener("resize", function () {
+            engine.resize();
+        });
+
+    </script>
+
+
+</body>
+
+</html>

@@ -1,0 +1,36 @@
+{
+    "joints": [
+        { "ix": 1, "position": { "x" : 0, "y" : 42, "z" : 0 }, "r" : 12, "mass": 2 }, 
+        { "ix": 2, "position": { "x" : -20, "y" : -4, "z" : 0}, "r" : 6, "mass": 2 },
+        { "ix": 3, "position": { "x" : -22, "y" : 12, "z" : 0}, "r" : 2, "mass": 1 },
+        { "ix": 4, "position": { "x" : -15, "y" : 28, "z" : 0}, "r" : 4, "mass": 2 },
+        { "ix": 5, "position": { "x" : 0, "y" : 30, "z" : 0}, "r" : 8, "mass": 4 },
+        { "ix": 6, "position": { "x" : 15, "y" : 28, "z" : 0}, "r" : 4, "mass": 2 },
+        { "ix": 7, "position": { "x" : 22, "y" : 12, "z" : 0}, "r" : 2, "mass": 1 },
+        { "ix": 8, "position": { "x" : 20, "y" : -4, "z" : 0}, "r" : 6, "mass": 2 },
+        { "ix": 9, "position": { "x" : -13, "y" : -50, "z" : 0}, "r" : 6, "mass": 2 },
+        { "ix": 10, "position": { "x" : -15, "y" : -25, "z" : 0}, "r" : 4, "mass": 2 },
+        { "ix": 11, "position": { "x" : -10, "y" : -5, "z" : 0}, "r" : 6, "mass": 3 },
+        { "ix": 12, "position": { "x" : 0, "y" : 0, "z" : 0}, "r" : 10, "mass": 3 },
+        { "ix": 13, "position": { "x" : 10, "y" : -5, "z" : 0}, "r" : 6, "mass": 3 },
+        { "ix": 14, "position": { "x" : 15, "y" : -25, "z" : 0}, "r" : 4, "mass": 2 },
+        { "ix": 15, "position": { "x" : 13, "y" : -50, "z" : 0}, "r" : 6, "mass": 2 }
+    ],
+    "bones": [
+        { "ix": 1, "from" : 5, "to" : 1 }, 
+        { "ix": 2, "from" : 2, "to" : 3 }, 
+        { "ix": 3, "from" : 4, "to" : 3 }, 
+        { "ix": 4, "from" : 5, "to" : 4 }, 
+        { "ix": 5, "from" : 8, "to" : 7 }, 
+        { "ix": 6, "from" : 6, "to" : 7 }, 
+        { "ix": 7, "from" : 5, "to" : 6 }, 
+        { "ix": 8, "from" : 12, "to" : 5 }, 
+        { "ix": 9, "from" : 10, "to" : 9 }, 
+        { "ix": 10, "from" : 11, "to" : 10 }, 
+        { "ix": 11, "from" : 12, "to" : 11 }, 
+        { "ix": 12, "from" : 14, "to" : 15 }, 
+        { "ix": 13, "from" : 13, "to" : 14 }, 
+        { "ix": 14, "from" : 12, "to" : 13 }
+    ]
+
+}
