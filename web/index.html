@@ -40,11 +40,14 @@
             const physicsPlugin = new BABYLON.AmmoJSPlugin()
 
             const meshes = []
-            const joints = []
+            const hinges = []
             const body = b
             lines = {}
 
             function resetBody() {
+                for (let hinge of hinges) {
+                    hinge.setMotor( 0, 1000 )
+                }
                 for (let i = 0; i < body.joints.length; i++) {
                     let joint = body.joints[i]
                     let mesh = meshes[i]
@@ -71,12 +74,16 @@
                     BABYLON.MeshBuilder.CreateLines(nm, options);
                 }
 
-                for (let mesh of meshes) {
-                    const x = Math.random() / 30.0
-                    const y = Math.random() / 30.0
-                    const z = Math.random() / 20.0
-                    const impulse = new BABYLON.Vector3(x, y, z)
-                    mesh.applyImpulse(impulse, BABYLON.Vector3.Zero() )
+                // for (let mesh of meshes) {
+                //     const x = Math.random() / 30.0
+                //     const y = Math.random() / 30.0
+                //     const z = Math.random() / 20.0
+                //     const impulse = new BABYLON.Vector3(x, y, z)
+                //     mesh.applyImpulse(impulse, BABYLON.Vector3.Zero() )
+                // }
+                for (let hinge of hinges) {
+                    const f = Math.random() / 1.0 - 0.5 
+                    hinge.setMotor( f, 1000 )
                 }
             }
 
@@ -129,9 +136,9 @@
                         connectedPivot: relativePos,                // relative position of hinge joint
                         maxDistance: dist
                     };
-                    const joint = new BABYLON.PhysicsJoint(BABYLON.PhysicsJoint.HingeJoint, jointData);
-                    a.physicsImpostor.addJoint(b.physicsImpostor, joint)
-                    joints.push({ "a": a.physicsImpostor, "b": b.physicsImpostor, "joint": joint })
+                    const hinge = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.HingeJoint, jointData);
+                    a.physicsImpostor.addJoint(b.physicsImpostor, hinge)
+                    hinges.push( hinge )
                 }
                 const camera = new BABYLON.ArcRotateCamera("camera", -Math.PI / 2, Math.PI / 2.5, 15, new BABYLON.Vector3(0, 0, 0));
                 // Positions the camera overwriting alpha, beta, radius
@@ -156,11 +163,6 @@
 
             const scene = createScene();
 
-            // scene.registerAfterRender(function() {
-            //     if( meshes[12].getAbsolutePosition().y <= -40 ) {
-            //         resetBody()
-            //     }
-            // })
 
             engine.runRenderLoop(function () {
                 updateScene();
