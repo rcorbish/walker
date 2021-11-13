@@ -30,25 +30,105 @@
 </head>
 
 <body>
-
+    <div id='score'>Score</div>
     <canvas id="renderCanvas" touch-action="none"></canvas> <!-- touch-action="none" for best results from PEP -->
 
 
     <script>
+        const POPULATION_SIZE = 20
+
+        class LearningModel {
+
+            constructor( populationSize, modelSize ) {
+                var clock = 0
+                this.scenario = 0
+                this.generation = 0 
+                this.population = []
+                this.scores = []
+                this.populationSize = populationSize 
+                this.modelSize = modelSize
+
+                for( let p=0 ; p<populationSize ; p++ ) {
+                    let frequencies = []
+                    for (let i = 0; i < modelSize; i++ ) {
+                        frequencies.push( Math.random() - 0.5 )
+                    }
+                    this.population.push( frequencies ) 
+                }
+            }
+
+            step = function() {
+                this.clock++ 
+                return this.clock 
+            }
+
+            nextScenario = function() {
+                this.scores.push(this.clock)
+                this.scenario++   // move to next scenario
+                // if we've done the whole batch - do our genetics...
+                if( this.scenario >= this.populationSize ) {
+                    let len = this.scores.length
+                    let indices = new Array(len)
+                    for (let i = 0; i < len; ++i) {
+                        indices[i] = [ this.scores[i], i ]
+                    }
+                    indices.sort(function (a, b) { 
+                        if( a[0] > b[0] ) return -1  
+                        if( a[0] < b[0] ) return 1 
+                        return 0 
+                    })
+
+                    for (let p = (this.populationSize>>1); p < this.populationSize; p++) {
+                        let x = indices[p][1]
+                        let frequencies = this.population[x]  // current population frequencies
+                        // pick 2 random parents from good half
+                        const pi1 = Math.floor(Math.random() * (this.populationSize >> 1) )
+                        const p1 = this.population[ indices[pi1][1] ]
+                        const pi2 = Math.floor(Math.random() * (this.populationSize >> 1) )
+                        const p2 = this.population[ indices[pi2][1] ]
+
+                        for (let h = 0; h < frequencies.length; h++) {
+                            if( Math.random() < 0.05 ) {
+                                frequencies[h] = Math.random() - 0.5  // mutation
+                            } else {
+                                frequencies[h] = Math.random() < 0.5 ? p1[h] : p2[h]
+                            }
+                        }
+                    }
+                    this.scores = []
+                    this.scenario = 0
+                    this.generation++
+                }
+
+                this.clock = 0
+                return this.population[this.scenario]
+            }
+        }
+
         function init(b) {
             //const physicsPlugin = new BABYLON.CannonJSPlugin();
             const physicsPlugin = new BABYLON.AmmoJSPlugin()
+            const scoreDiv = document.getElementById( 'score' )
 
             const meshes = []
             const hinges = []
             const body = b
             lines = {}
 
+            const learningModel = new LearningModel( POPULATION_SIZE, body.bones.length<<1 )
+
             // set the body back to original state, not moving etc.
             function resetBody() {
-                for (let hinge of hinges) {
-                    hinge.setMotor( 0, 1000 )
+                scoreDiv.innerText = "Score: " + learningModel.clock + " Scenario: " + learningModel.scenario + " Generation: " + learningModel.generation
+
+                const frequencies = learningModel.nextScenario() 
+
+                for (let i=0 ; i<hinges.length ; i++ ) {
+                    hinges[i].hinge.setMotor(0, 1000)
+                    hinges[i].cos = frequencies[i*2]
+                    hinges[i].sin = frequencies[i*2+1]
                 }
+                
                 for (let i = 0; i < body.joints.length; i++) {
                     let joint = body.joints[i]
                     let mesh = meshes[i]
@@ -60,6 +140,8 @@
             }
 
             function updateScene() {
+                const clock = learningModel.step()
+
                 for (let ix = 0; ix < body.bones.length; ix++) {
 
                     const bone = body.bones[ix]
@@ -75,16 +157,9 @@
                     BABYLON.MeshBuilder.CreateLines(nm, options);
                 }
 
-                // for (let mesh of meshes) {
-                //     const x = Math.random() / 30.0
-                //     const y = Math.random() / 30.0
-                //     const z = Math.random() / 20.0
-                //     const impulse = new BABYLON.Vector3(x, y, z)
-                //     mesh.applyImpulse(impulse, BABYLON.Vector3.Zero() )
-                // }
                 for (let hinge of hinges) {
-                    const f = Math.random() / 1.0 - 0.5 
-                    hinge.setMotor( f, 1000 )
+                    const f = Math.cos(clock * hinge.cos) + Math.cos(clock * hinge.sin)
+                    hinge.hinge.setMotor(f, 1000)
                 }
             }
 
@@ -106,7 +181,7 @@
                 scene.ambientColor = new BABYLON.Color3(.1, 1, .5);
 
                 // The ground, is a big square ...
-                const ground = BABYLON.Mesh.CreateGround("ground", 200, 200, 1, scene)
+                const ground = BABYLON.Mesh.CreateGround("ground", 400, 400, 1, scene)
                 const groundMaterial = new BABYLON.StandardMaterial("groundMaterial", scene)
                 groundMaterial.diffuseColor = new BABYLON.Color3(1, 0, 1)
                 groundMaterial.specularColor = new BABYLON.Color3(0.5, 0.6, 0.17)
@@ -116,20 +191,17 @@
                 ground.position = new BABYLON.Vector3(0, -53, 0);
                 new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, restitution: 0.5 }, scene);
 
-
                 // create empty body joints, elbows, knees etc.
                 for (let i = 0; i < body.joints.length; i++) {
                     let joint = body.joints[i]
                     let mesh = BABYLON.MeshBuilder.CreateSphere("joint" + joint.ix, { "diameter": joint.r });
+                    mesh.setAbsolutePosition(joint.position)
                     meshes.push(mesh)
                     mesh.physicsImpostor = new BABYLON.PhysicsImpostor(mesh, BABYLON.PhysicsImpostor.SphereImpostor, { mass: joint.mass, restitution: 0.4 }, scene);
                 }
 
-                // initialize the body to start position
-                // MUST do this before creating joints which need to know 
-                // how the joints are placed relative to each other
-                resetBody() 
 
+                frequencies = learningModel.population[learningModel.scenario]
                 // create bones ( lines/hinges between joints )
                 for (let ix = 0; ix < body.bones.length; ix++) {
                     const bone = body.bones[ix]
@@ -146,23 +218,24 @@
 
                     const dist = BABYLON.Vector3.Distance(a.getAbsolutePosition(), b.getAbsolutePosition())
                     const relativePos = a.position.subtract(b.getAbsolutePosition())
+                    const axis = new BABYLON.Vector3(bone.axis[0], bone.axis[1], bone.axis[2])
                     const jointData = {
-                        mainAxis: new BABYLON.Vector3(0, 0, 1),     // hinge around Z axis
-                        connectedAxis: new BABYLON.Vector3(0, 0, 1),// hinge around Z axis
-                        mainPivot: BABYLON.Vector3.Zero(),          // rotate around this center
-                        connectedPivot: relativePos,                // relative position of hinge joint
+                        mainAxis: axis,                     // hinge around this axis
+                        connectedAxis: axis,                // hinge around this axis
+                        mainPivot: BABYLON.Vector3.Zero(),  // rotate around this center
+                        connectedPivot: relativePos,        // relative position of hinge joint
                         maxDistance: dist
                     };
                     const hinge = new BABYLON.MotorEnabledJoint(BABYLON.PhysicsJoint.HingeJoint, jointData);
                     a.physicsImpostor.addJoint(b.physicsImpostor, hinge)
-                    hinges.push( hinge )
+                    hinges.push({ "hinge": hinge, "cos": frequencies[ix*2], "sin": frequencies[ix*2+1] })
                 }
-
 
                 // Add an event handler to see if body has collapsed
                 scene.onAfterPhysicsObservable.add(() => {
                     // ass on the floor == dead :)
-                    if (meshes[12].getAbsolutePosition().y <= -45) {
+                    if (meshes[11].getAbsolutePosition().y < -40 ||
+                        meshes[0].getAbsolutePosition().y < 0) {
                         resetBody()
                     }
                 })
@@ -178,10 +251,6 @@
                 scene.render();
             });
         }
-    </script>
-
-
-    <script>
 
         function reqListener() {
             body = JSON.parse(this.responseText);
